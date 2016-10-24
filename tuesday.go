@@ -1,13 +1,22 @@
-package tuesday
+package main
 
 import (
 	"log"
 	"gopkg.in/redis.v5"
-	"strconv"
-	"strings"
-	"errors"
+	"github.com/julienschmidt/httprouter"
+	"net/http"
+	"encoding/json"
 )
 
+var client *redis.Client
+
+type HTTPResponse struct {
+	TuesId string `json:"tues_id"`
+}
+
+type HTTPErrorResponse struct {
+	Message string `json:"message"`
+}
 
 func newRedisClient() (*redis.Client, error) {
 	client := redis.NewClient(&redis.Options{
@@ -20,37 +29,25 @@ func newRedisClient() (*redis.Client, error) {
 	return client, err
 }
 
-func nextChar(currentChar string) (string, error) {
-	chars := "abcdefghijklmnopqrstuvwxyz"
-
-	if currentChar == "z" {
-		return "a", nil
-	} else {
-		index := strings.Index(chars, currentChar)
-		if index == -1 {
-			return "", errors.New("Not an alphabet")
-		}
-
-		return string(chars[index + 1]), nil
-	}
-}
-
-func nextInt(currentInt string) (string, error) {
-	num, err := strconv.Atoi(currentInt)
-	if err != nil {
-		return "", err
+func handleNewTuesId(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	tuesID := GetNextSeq(client)
+	if tuesID == "" {
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(&HTTPErrorResponse{
+			Message: "No tuesid available",
+		})
 	}
 
-	if num == 9 {
-		return "0", nil
-	} else {
-		return strconv.Itoa(num + 1), nil
-	}
+	json.NewEncoder(w).Encode(&HTTPResponse{
+		TuesId: tuesID,
+	})
 }
 
 func main() {
+	var err error
+
 	// Open database
-	client, err := newRedisClient()
+	client, err = newRedisClient()
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -59,4 +56,15 @@ func main() {
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
+
+	err = GenCombination(client)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	router := httprouter.New()
+
+	router.GET("/tuesid", handleNewTuesId)
+
+	log.Println(http.ListenAndServe(":9090", router))
 }
