@@ -1,12 +1,8 @@
 package tuesday
 
-import (
-	"github.com/boltdb/bolt"
-	"log"
-)
+import "gopkg.in/redis.v5"
 
-
-// Identifier generation
+// SetupDB for Identifier generation
 // For details on discussions of identifier generation  refer https://github.com/shakdwipeea/tuesday-android/issues/14
 //
 // For the first 45k people the unique id wiil be
@@ -41,13 +37,23 @@ import (
 //
 // make sure no collisions for 45k numbers, then we can remove the check and asynchronously notify user for any errors
 // since we have established no chances for error.
-
-
-func main() {
-	// Open database
-	db, err := bolt.Open("tuesday.db", 0600, nil)
-	if err != nil {
-		log.Fatal(err.Error())
+func SetupDB(client *redis.Client) error {
+	if err := client.HMSet("first", map[string]string{
+		"nextChar": "a",
+		"nextNum": "0",
+	}).Err(); err != nil {
+		return err
 	}
-	defer db.Close()
+
+	if err := client.HMSet("second", map[string]string{
+		"nextChar": "s",
+		"nextNum": "0",
+	}).Err(); err != nil {
+		return err
+	}
+
+	return client.HMSet("third", map[string]string{
+		"nextChar": "z",
+		"nextNum": "9",
+	}).Err()
 }
