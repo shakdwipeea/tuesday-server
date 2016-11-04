@@ -15,7 +15,7 @@ func BenchmarkTuesday(t *testing.B)  {
 			t.Fatal(err)
 		}
 
-		var body *HTTPResponse
+		var body *TuesIDResponse
 		json.NewDecoder(response.Body).Decode(&body)
 
 		t.Log(body.TuesId)
