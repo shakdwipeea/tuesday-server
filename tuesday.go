@@ -8,9 +8,12 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"gopkg.in/redis.v5"
 	"strings"
+	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var client *redis.Client
+var db *sql.DB
 
 type TuesIDResponse struct {
 	TuesId string `json:"tues_id"`
@@ -31,7 +34,7 @@ func newRedisClient() (*redis.Client, error) {
 	return client, err
 }
 
-func handleNewTuesId(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func handleNewTuesId(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	tuesID := GetNextSeq(client)
 	if tuesID == "" {
 		w.WriteHeader(500)
@@ -48,7 +51,7 @@ func handleNewTuesId(w http.ResponseWriter, r *http.Request, _ httprouter.Params
 }
 
 func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	var reqBody map[string]string
+	var reqBody User
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
 		w.WriteHeader(400)
@@ -58,16 +61,7 @@ func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		return
 	}
 
-	name := reqBody["name"]
-	if name == "" {
-		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(&HTTPResponse{
-			Message: "Bad request",
-		})
-		return
-	}
-
-	err = savePrefixes(client, name)
+	err = saveUser(db, reqBody)
 	if err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(&HTTPResponse{
@@ -88,22 +82,33 @@ func handleSearch(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	prefix := strings.ToLower(r.URL.Query().Get("key"))
 
-	names, err := client.SMembers(prefix).Result()
+	users, err := getUsers(db, prefix)
 	if err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(&HTTPResponse{
-			Message: "Could not index",
+			Message: err.Error(),
 		})
 		return
 	}
 
-	json.NewEncoder(w).Encode(&SearchResponse{
-		Results: names,
-	})
+	json.NewEncoder(w).Encode(&users)
 }
 
 func main() {
 	var err error
+
+	// Connect to mysql
+	db, err = sql.Open("mysql", "root:morning_star@/tuesday")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	// Create schema
+	err = createSchema(db)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+	log.Println("Schema created")
 
 	// Open database
 	client, err = newRedisClient()
