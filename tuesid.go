@@ -1,14 +1,11 @@
 package main
 
 import (
-	"gopkg.in/redis.v5"
 	"errors"
-	"strings"
 	"strconv"
-)
+	"strings"
 
-const (
-	TUESID_KEY = "tuesid_key"
+	"database/sql"
 )
 
 // SetupDB for Identifier generation
@@ -30,9 +27,12 @@ const (
 //
 // make sure no collisions for 45k numbers, then we can remove the check and asynchronously notify user for any errors
 // since we have established no chances for error.
-func SetupDB(client *redis.Client) error {
-	return client.Del(TUESID_KEY).Err()
-}
+// func SetupDB(client *redis.Client) error {
+// 	// idk why this is required
+// 	return client.Del(TuesIDKey).Err()
+// }
+
+var keyPresentError = errors.New("Key already generated")
 
 const chars = "abcdefghijklmnopqrstuvwxyz"
 
@@ -49,8 +49,8 @@ func nextChar(currentChar string) (string, error) {
 		}
 
 		return string([]byte{
-			chars[index + 1],
-			chars[index + 2],
+			chars[index+1],
+			chars[index+2],
 		}), nil
 	}
 }
@@ -62,10 +62,9 @@ func nextInt(num int) (string, error) {
 	case 9:
 		return "01", nil
 	default:
-		return strconv.Itoa(num + 1) + strconv.Itoa(num + 2), nil
+		return strconv.Itoa(num+1) + strconv.Itoa(num+2), nil
 	}
 }
-
 
 func genTuesPool() ([]string, error) {
 	var pool []string
@@ -89,7 +88,7 @@ func genTuesPool() ([]string, error) {
 	return pool, nil
 }
 
-func GenCombination(client *redis.Client) error {
+func GenCombination(db *sql.DB) error {
 	pool, err := genTuesPool()
 	if err != nil {
 		return err
@@ -98,7 +97,7 @@ func GenCombination(client *redis.Client) error {
 	for _, i := range pool {
 		for _, j := range pool {
 			for _, k := range pool {
-				err = SaveTuesId(client, i + j + k)
+				err = SaveTuesId(db, i+j+k)
 				if err != nil {
 					return err
 				}
@@ -108,18 +107,40 @@ func GenCombination(client *redis.Client) error {
 	return nil
 }
 
-func GetNextSeq(client *redis.Client) string {
-	return client.SPop(TUESID_KEY).Val()
-}
+func GetNextSeq(db *sql.DB) (string, error) {
+	var tuesId string
 
-func SaveTuesId(client *redis.Client, tuesID string) error {
-	if checkPresence(client, tuesID) {
-		return errors.New("Key already generated")
+	// get unused tuesid
+	row := db.QueryRow("SELECT id FROM tuesid WHERE used = 0 LIMIT 1")
+	err := row.Scan(&tuesId)
+	if err != nil {
+		return tuesId, err
 	}
 
-	return client.SAdd(TUESID_KEY, tuesID).Err()
+	// mark tuesid as used
+	_, err = db.Exec("UPDATE tuesid SET used = 1 WHERE id = ?", tuesId)
+	if err != nil {
+		return tuesId, err
+	}
+
+	return tuesId, nil
 }
 
-func checkPresence(client *redis.Client, tuesID string) bool {
-	return client.SIsMember(TUESID_KEY, tuesID).Val()
+func SaveTuesId(db *sql.DB, tuesID string) error {
+	if checkPresence(db, tuesID) {
+		return keyPresentError
+	}
+
+	_, err := db.Exec("INSERT INTO tuesid (id, used) VALUES (?, 0)", tuesID)
+	return err
+}
+
+func checkPresence(db *sql.DB, tuesID string) bool {
+	var tuesId string
+	row := db.QueryRow("SELECT id FROM tuesid WHERE id = ?", tuesID)
+	err := row.Scan(&tuesId)
+	if err == sql.ErrNoRows {
+		return false
+	}
+	return true
 }

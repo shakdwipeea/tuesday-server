@@ -11,6 +11,14 @@ func createSchema(db *sql.DB) error {
 	);
 	`
 
+	tuesTable := `
+	CREATE TABLE IF NOT EXISTS tuesid (
+		id VARCHAR(256) NOT NULL UNIQUE,
+		used BOOL NOT NULL
+	);
+	`
+
 	_, err := db.Exec(userTable)
+	_, err = db.Exec(tuesTable)
 	return err
 }

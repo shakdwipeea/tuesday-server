@@ -10,10 +10,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
-	"gopkg.in/redis.v5"
 )
 
-var client *redis.Client
 var db *sql.DB
 
 type TuesIDResponse struct {
@@ -24,20 +22,11 @@ type HTTPResponse struct {
 	Message string `json:"message"`
 }
 
-func newRedisClient() (*redis.Client, error) {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
-
-	_, err := client.Ping().Result()
-	return client, err
-}
-
 func handleNewTuesId(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
-	tuesID := GetNextSeq(client)
-	if tuesID == "" {
+	log.Println("Incoming request for new tues id")
+
+	tuesID, err := GetNextSeq(db)
+	if err != nil || tuesID == "" {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(&HTTPResponse{
 			Message: "No tuesid available",
@@ -52,6 +41,8 @@ func handleNewTuesId(w http.ResponseWriter, _ *http.Request, _ httprouter.Params
 }
 
 func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	log.Println("Incoming request for new user registration")
+
 	var reqBody User
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
 	if err != nil {
@@ -77,6 +68,8 @@ func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 }
 
 func handleSearch(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	log.Println("Incoming request for search")
+
 	type SearchResponse struct {
 		Results []string `json:"results"`
 	}
@@ -112,21 +105,11 @@ func main() {
 	}
 	log.Println("Schema created")
 
-	// Open database
-	client, err = newRedisClient()
-	if err != nil {
+	err = GenCombination(db)
+	if err != nil && err != keyPresentError {
 		log.Fatalln(err.Error())
 	}
-
-	err = SetupDB(client)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
-
-	err = GenCombination(client)
-	if err != nil {
-		log.Fatalln(err.Error())
-	}
+	log.Println("Keys generated successfully.")
 
 	router := httprouter.New()
 
@@ -134,5 +117,8 @@ func main() {
 	router.POST("/register", handleNewUser)
 	router.GET("/search", handleSearch)
 
-	log.Println(http.ListenAndServe(":9090", router))
+	err = http.ListenAndServe(":9090", router)
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
 }
