@@ -5,11 +5,12 @@ import (
 	"log"
 	"net/http"
 
+	"database/sql"
+	"strings"
+
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
 	"gopkg.in/redis.v5"
-	"strings"
-	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
 )
 
 var client *redis.Client
@@ -65,7 +66,7 @@ func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	if err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(&HTTPResponse{
-			Message: "Could not index",
+			Message: err.Error(),
 		})
 		return
 	}
@@ -91,6 +92,7 @@ func handleSearch(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
+	log.Println("Response sent")
 	json.NewEncoder(w).Encode(&users)
 }
 
@@ -130,7 +132,7 @@ func main() {
 
 	router.GET("/tuesid", handleNewTuesId)
 	router.POST("/register", handleNewUser)
-	router.GET("/search", handleSearch);
+	router.GET("/search", handleSearch)
 
 	log.Println(http.ListenAndServe(":9090", router))
 }
