@@ -89,6 +89,12 @@ func handleSearch(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	json.NewEncoder(w).Encode(&users)
 }
 
+func handleTest(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	json.NewEncoder(w).Encode(&HTTPResponse{
+		Message: "Server up and running. 😎",
+	})
+}
+
 func main() {
 	var err error
 
@@ -116,6 +122,7 @@ func main() {
 	router.GET("/tuesid", handleNewTuesId)
 	router.POST("/register", handleNewUser)
 	router.GET("/search", handleSearch)
+	router.GET("/test", handleTest)
 
 	err = http.ListenAndServe(":9090", router)
 	if err != nil {
