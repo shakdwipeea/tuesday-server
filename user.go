@@ -2,18 +2,31 @@ package main
 
 import (
 	"database/sql"
+	"log"
 )
 
 type User struct {
-	Uid string `json:"uid"`
-	Name string `json:"name"`
+	Uid     string `json:"uid"`
+	Name    string `json:"name"`
 	Picture string `json:"pic"`
 }
 
 func saveUser(db *sql.DB, user User) error {
-	_, err := db.Exec("INSERT INTO user (uid, name, pic) VALUES (?, ?, ?)",
-		user.Uid, user.Name, user.Picture)
-	return err
+	var duplicate bool
+	err := db.QueryRow("SELECT 1 from user WHERE uid = ?", user.Uid).Scan(&duplicate)
+	if err != nil {
+		return err
+	}
+
+	if !duplicate {
+		_, err := db.Exec("INSERT INTO user (uid, name, pic) VALUES (?, ?, ?)",
+			user.Uid, user.Name, user.Picture)
+		return err
+	}
+
+	log.Println("Non unique duplicate but still free")
+
+	return nil
 }
 
 func getUsers(db *sql.DB, prefix string) ([]User, error) {
