@@ -14,7 +14,7 @@ type User struct {
 func saveUser(db *sql.DB, user User) error {
 	var duplicate bool
 	err := db.QueryRow("SELECT 1 from user WHERE uid = ?", user.Uid).Scan(&duplicate)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
 
