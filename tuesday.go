@@ -95,6 +95,23 @@ func handleTest(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	})
 }
 
+func handleTuesID(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	tuesID := r.URL.Query().Get("tuesid")
+
+	user, err := getUser(db, tuesID)
+	if err != nil {
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(&HTTPResponse{
+			Message: err.Error(),
+		})
+		return
+	}
+
+
+	json.NewEncoder(w).Encode(&user)
+}
+
+
 func main() {
 	var err error
 
@@ -123,6 +140,7 @@ func main() {
 	router.POST("/register", handleNewUser)
 	router.GET("/search", handleSearch)
 	router.GET("/test", handleTest)
+	router.GET("/get", handleTuesID)
 
 	err = http.ListenAndServe(":9090", router)
 	if err != nil {

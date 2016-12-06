@@ -7,7 +7,8 @@ func createSchema(db *sql.DB) error {
 	CREATE TABLE IF NOT EXISTS user (
 		uid VARCHAR(256) NOT NULL UNIQUE,
 		name VARCHAR(256),
-		pic VARCHAR(256)
+		pic VARCHAR(256),
+		tuesid VARCHAR(256)
 	);
 	`
 

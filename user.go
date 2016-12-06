@@ -9,6 +9,7 @@ type User struct {
 	Uid     string `json:"uid"`
 	Name    string `json:"name"`
 	Picture string `json:"pic"`
+	TuesID string  `json:"tuesid"`
 }
 
 func saveUser(db *sql.DB, user User) error {
@@ -19,8 +20,8 @@ func saveUser(db *sql.DB, user User) error {
 	}
 
 	if !duplicate {
-		_, err := db.Exec("INSERT INTO user (uid, name, pic) VALUES (?, ?, ?)",
-			user.Uid, user.Name, user.Picture)
+		_, err := db.Exec("INSERT INTO user (uid, name, pic, tuesid) VALUES (?, ?, ?, ?)",
+			user.Uid, user.Name, user.Picture, user.TuesID)
 		return err
 	}
 
@@ -49,4 +50,14 @@ func getUsers(db *sql.DB, prefix string) ([]User, error) {
 	}
 
 	return users, rows.Err()
+}
+
+func getUser(db *sql.DB, tuesID string) (User, error) {
+	sqlParam := tuesID
+	row := db.QueryRow("SELECT * FROM user WHERE tuesid = ?", sqlParam)
+
+	var user User
+	err := row.Scan(&user.Uid, &user.Name, &user.Picture, &user.TuesID)
+
+	return user, err
 }
