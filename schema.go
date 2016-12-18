@@ -8,7 +8,9 @@ func createSchema(db *sql.DB) error {
 		uid VARCHAR(256) NOT NULL UNIQUE,
 		name VARCHAR(256),
 		pic VARCHAR(256),
-		tuesid VARCHAR(256)
+		phone VARCHAR(256),
+		otp VARCHAR(20),
+		verified BOOL NOT NULL
 	);
 	`
 

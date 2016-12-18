@@ -9,7 +9,9 @@ type User struct {
 	Uid     string `json:"uid"`
 	Name    string `json:"name"`
 	Picture string `json:"pic"`
-	TuesID string  `json:"tuesid"`
+	Phone	string `json:"phone"`
+	Otp	string `json:"otp"`
+	Verified bool `json:"verified"`
 }
 
 func saveUser(db *sql.DB, user User) error {
