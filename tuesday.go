@@ -57,6 +57,7 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	}
 
 	user.Token = token
+	user.Otp = ""
 	json.NewEncoder(w).Encode(&user)
 }
 
