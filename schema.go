@@ -10,18 +10,9 @@ func createSchema(db *sql.DB) error {
 		pic VARCHAR(256),
 		phone VARCHAR(256),
 		otp VARCHAR(20),
-		verified BOOL NOT NULL
+		verified BOOLEAN NOT NULL
 	);
 	`
-
-	tuesTable := `
-	CREATE TABLE IF NOT EXISTS tuesid (
-		id VARCHAR(256) NOT NULL UNIQUE,
-		used BOOL NOT NULL
-	);
-	`
-
 	_, err := db.Exec(userTable)
-	_, err = db.Exec(tuesTable)
 	return err
 }

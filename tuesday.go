@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"database/sql"
-	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
@@ -22,26 +21,102 @@ type HTTPResponse struct {
 	Message string `json:"message"`
 }
 
-func handleNewTuesId(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
-	log.Println("Incoming request for new tues id")
+func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	//user signup information
+	var reqBody User
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		SendErrorResponse(400, err.Error(), w)
+		return
+	}
 
-	tuesID, err := GetNextSeq(db)
-	if err != nil || tuesID == "" {
-		w.WriteHeader(500)
+	user, err := getUser(db, reqBody.Phone)
+	if err == sql.ErrNoRows {
+		// user does not exist so create the user and send otp
+		err = createUser(reqBody)
+		if err != nil {
+			SendErrorResponse(500, err.Error(), w)
+			return
+		}
+
+		reqBody.Verified = false
+	}
+
+	if err != nil {
+		SendErrorResponse(500, err.Error(), w)
+		return
+	}
+
+	json.NewEncoder(w).Encode(&user)
+}
+
+func createUser(user User) error {
+	otp, err := genOtp()
+	if err != nil {
+		return err
+	}
+
+	user.Otp = otp
+	user.Verified = false
+
+	err = saveUser(db, user)
+	if err != nil {
+		return err
+	}
+
+	go sendOtp(user.Otp, user.Phone)
+	return nil
+}
+
+func handleOtpVerification(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	var reqBody User
+	err := json.NewDecoder(r.Body).Decode(&reqBody)
+	if err != nil {
+		w.WriteHeader(400)
 		json.NewEncoder(w).Encode(&HTTPResponse{
-			Message: "No tuesid available",
+			Message: "Bad request",
 		})
 		return
 	}
 
-	log.Println("New tuesid generated " + tuesID)
-	json.NewEncoder(w).Encode(&TuesIDResponse{
-		TuesId: tuesID,
-	})
+	user, err := getUser(db, reqBody.Phone)
+	if err != nil {
+		SendErrorResponse(500, err.Error(), w)
+		return
+	}
+
+	if user.Otp != reqBody.Otp {
+		SendErrorResponse(400, "Otp incorrect", w)
+		return
+	}
+
+	user.Verified = true
+	err = verifyUser(db, user.Phone, user.Verified)
+	if err != nil {
+		SendErrorResponse(500, err.Error(), w)
+		return
+	}
+
+	json.NewEncoder(w).Encode(&user)
 }
 
-func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.Println("Incoming request for new user registration")
+func handleProfile(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	phone := r.URL.Query().Get("phone")
+
+	user, err := getUser(db, phone)
+	if err != nil {
+		SendErrorResponse(500, err.Error(), w)
+		return
+	}
+
+	user.Otp = ""
+
+	json.NewEncoder(w).Encode(&user)
+}
+
+// Sign up route
+func handleUpdateUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	log.Println("Incoming request for user update")
 
 	var reqBody User
 	err := json.NewDecoder(r.Body).Decode(&reqBody)
@@ -53,7 +128,7 @@ func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 		return
 	}
 
-	err = saveUser(db, reqBody)
+	err = updateUser(db, reqBody)
 	if err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(&HTTPResponse{
@@ -63,60 +138,15 @@ func handleNewUser(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 	}
 
 	json.NewEncoder(w).Encode(&HTTPResponse{
-		Message: "Successfully indexed your name",
+		Message: "Details saved",
 	})
 }
-
-func handleSearch(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	log.Println("Incoming request for search")
-
-	type SearchResponse struct {
-		Results []string `json:"results"`
-	}
-
-	prefix := strings.ToLower(r.URL.Query().Get("key"))
-
-	users, err := getUsers(db, prefix)
-	if err != nil {
-		w.WriteHeader(500)
-		json.NewEncoder(w).Encode(&HTTPResponse{
-			Message: err.Error(),
-		})
-		return
-	}
-
-	log.Println("Response sent")
-	json.NewEncoder(w).Encode(&users)
-}
-
-func handleTest(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	json.NewEncoder(w).Encode(&HTTPResponse{
-		Message: "Server up and running. 😎",
-	})
-}
-
-func handleTuesID(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	tuesID := r.URL.Query().Get("tuesid")
-
-	user, err := getUser(db, tuesID)
-	if err != nil {
-		w.WriteHeader(500)
-		json.NewEncoder(w).Encode(&HTTPResponse{
-			Message: err.Error(),
-		})
-		return
-	}
-
-
-	json.NewEncoder(w).Encode(&user)
-}
-
 
 func main() {
 	var err error
 
 	// Connect to mysql
-	db, err = sql.Open("mysql", "root:morning_star@/tuesday")
+	db, err = sql.Open("mysql", "root:@/tuesday")
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
@@ -128,19 +158,12 @@ func main() {
 	}
 	log.Println("Schema created")
 
-	err = GenCombination(db)
-	if err != nil && err != keyPresentError {
-		log.Fatalln(err.Error())
-	}
-	log.Println("Keys generated successfully.")
-
 	router := httprouter.New()
 
-	router.GET("/tuesid", handleNewTuesId)
-	router.POST("/register", handleNewUser)
-	router.GET("/search", handleSearch)
-	router.GET("/test", handleTest)
-	router.GET("/get", handleTuesID)
+	router.POST("/phone", handlePhone)
+	router.POST("/register", handleUpdateUser)
+	router.POST("/verify", handleOtpVerification)
+	router.GET("/profile", handleProfile)
 
 	err = http.ListenAndServe(":9090", router)
 	if err != nil {

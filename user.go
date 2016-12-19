@@ -6,12 +6,12 @@ import (
 )
 
 type User struct {
-	Uid     string `json:"uid"`
-	Name    string `json:"name"`
-	Picture string `json:"pic"`
-	Phone	string `json:"phone"`
-	Otp	string `json:"otp"`
-	Verified bool `json:"verified"`
+	Uid      string `json:"uid"`
+	Name     string `json:"name"`
+	Picture  string `json:"pic"`
+	Phone    string `json:"phone"`
+	Otp      string `json:"otp"`
+	Verified bool   `json:"verified"`
 }
 
 func saveUser(db *sql.DB, user User) error {
@@ -22,8 +22,9 @@ func saveUser(db *sql.DB, user User) error {
 	}
 
 	if !duplicate {
-		_, err := db.Exec("INSERT INTO user (uid, name, pic, tuesid) VALUES (?, ?, ?, ?)",
-			user.Uid, user.Name, user.Picture, user.TuesID)
+		_, err := db.Exec(`INSERT INTO user (uid, name, pic, phone, otp, verified) VALUES 
+		(?, ?, ?, ?, ?, ?)`,
+			user.Uid, user.Name, user.Picture, user.Phone, user.Otp, user.Verified)
 		return err
 	}
 
@@ -32,34 +33,25 @@ func saveUser(db *sql.DB, user User) error {
 	return nil
 }
 
-func getUsers(db *sql.DB, prefix string) ([]User, error) {
-	var users []User
+func updateUser(db *sql.DB, user User) error {
+	_, err := db.Exec("UPDATE user SET name = ?, pic =? WHERE phone = ?",
+		user.Name, user.Picture, user.Phone)
 
-	sqlParam := "%" + prefix + "%"
-	rows, err := db.Query("SELECT * FROM user WHERE name like ?", sqlParam)
-	if err != nil {
-		return users, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var user User
-		if err := rows.Scan(&user.Uid, &user.Name, &user.Picture); err != nil {
-			return users, err
-		}
-
-		users = append(users, user)
-	}
-
-	return users, rows.Err()
+	return err
 }
 
-func getUser(db *sql.DB, tuesID string) (User, error) {
-	sqlParam := tuesID
-	row := db.QueryRow("SELECT * FROM user WHERE tuesid = ?", sqlParam)
+func getUser(db *sql.DB, phone string) (User, error) {
+	sqlParam := phone
+	row := db.QueryRow("SELECT * FROM user WHERE phone = ?", sqlParam)
 
 	var user User
-	err := row.Scan(&user.Uid, &user.Name, &user.Picture, &user.TuesID)
+	err := row.Scan(&user.Uid, &user.Name, &user.Picture, &user.Phone, &user.Otp,
+		&user.Verified)
 
 	return user, err
+}
+
+func verifyUser(db *sql.DB, phone string, verified bool) error {
+	_, err := db.Exec("UPDATE user SET verified = ? WHERE phone = ?", phone, verified)
+	return err
 }
