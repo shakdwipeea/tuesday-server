@@ -5,7 +5,7 @@ import "database/sql"
 func createSchema(db *sql.DB) error {
 	userTable := `
 	CREATE TABLE IF NOT EXISTS user (
-		uid VARCHAR(256) NOT NULL UNIQUE,
+		uid int NOT NULL AUTO_INCREMENT PRIMARY KEY,
 		name VARCHAR(256),
 		pic VARCHAR(256),
 		phone VARCHAR(256),

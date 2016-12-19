@@ -1,36 +1,24 @@
 package main
 
-import (
-	"database/sql"
-	"log"
-)
+import "database/sql"
 
 type User struct {
-	Uid      string `json:"uid"`
+	Uid      int    `json:"uid"`
 	Name     string `json:"name"`
 	Picture  string `json:"pic"`
 	Phone    string `json:"phone"`
 	Otp      string `json:"otp"`
 	Verified bool   `json:"verified"`
+	Token    string `json:"token"`
 }
 
-func saveUser(db *sql.DB, user User) error {
-	var duplicate bool
-	err := db.QueryRow("SELECT 1 from user WHERE uid = ?", user.Uid).Scan(&duplicate)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
-
-	if !duplicate {
-		_, err := db.Exec(`INSERT INTO user (uid, name, pic, phone, otp, verified) VALUES 
+func saveUser(db *sql.DB, user User) (int, error) {
+	res, err := db.Exec(`INSERT INTO user (uid, name, pic, phone, otp, verified) VALUES 
 		(?, ?, ?, ?, ?, ?)`,
-			user.Uid, user.Name, user.Picture, user.Phone, user.Otp, user.Verified)
-		return err
-	}
+		user.Uid, user.Name, user.Picture, user.Phone, user.Otp, user.Verified)
 
-	log.Println("Non unique duplicate but still free")
-
-	return nil
+	lastID, err := res.LastInsertId()
+	return int(lastID), err
 }
 
 func updateUser(db *sql.DB, user User) error {

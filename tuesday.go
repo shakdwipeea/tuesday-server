@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
+	firebase "github.com/wuman/firebase-server-sdk-go"
 )
 
 var db *sql.DB
@@ -33,39 +34,48 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	user, err := getUser(db, reqBody.Phone)
 	if err == sql.ErrNoRows {
 		// user does not exist so create the user and send otp
-		err = createUser(reqBody)
+		uid, err := createUser(reqBody)
 		if err != nil {
 			SendErrorResponse(500, err.Error(), w)
 			return
 		}
 
-		reqBody.Verified = false
+		user.Uid = uid
+		user.Verified = false
 	}
 
+	if err != nil && err != sql.ErrNoRows {
+		SendErrorResponse(500, err.Error(), w)
+		return
+	}
+
+	auth, _ := firebase.GetAuth()
+	token, err := auth.CreateCustomToken(string(user.Uid), nil)
 	if err != nil {
 		SendErrorResponse(500, err.Error(), w)
 		return
 	}
 
+	user.Token = token
 	json.NewEncoder(w).Encode(&user)
 }
 
-func createUser(user User) error {
+func createUser(user User) (int, error) {
 	otp, err := genOtp()
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	user.Otp = otp
 	user.Verified = false
 
-	err = saveUser(db, user)
+	id, err := saveUser(db, user)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
 	go sendOtp(user.Otp, user.Phone)
-	return nil
+	return id, nil
 }
 
 func handleOtpVerification(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -157,6 +167,10 @@ func main() {
 		log.Fatalln(err.Error())
 	}
 	log.Println("Schema created")
+
+	firebase.InitializeApp(&firebase.Options{
+		ServiceAccountPath: "firebase-credentials.json",
+	})
 
 	router := httprouter.New()
 
