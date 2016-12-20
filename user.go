@@ -22,7 +22,7 @@ func saveUser(db *sql.DB, user User) (int, error) {
 }
 
 func updateOtp(db *sql.DB, user User) error {
-	_, err := db.Exec("UPDATE user SET otp = ?, phone = ? WHERE phone = ?",
+	_, err := db.Exec("UPDATE user SET otp = ?, verified = ? WHERE phone = ?",
 		user.Otp, user.Verified, user.Phone)
 
 	return err
