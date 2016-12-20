@@ -49,8 +49,7 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	auth, _ := firebase.GetAuth()
-	token, err := auth.CreateCustomToken(string(user.Uid), nil)
+	token, err := createSignInToken(string(user.Uid))
 	if err != nil {
 		SendErrorResponse(500, err.Error(), w)
 		return
@@ -59,6 +58,12 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	user.Token = token
 	user.Otp = ""
 	json.NewEncoder(w).Encode(&user)
+}
+
+func createSignInToken(uid string) (string, error) {
+	auth, _ := firebase.GetAuth()
+	token, err := auth.CreateCustomToken(uid, nil)
+	return token, err
 }
 
 func createUser(user User) (int, error) {
@@ -108,6 +113,13 @@ func handleOtpVerification(w http.ResponseWriter, r *http.Request, _ httprouter.
 		return
 	}
 
+	token, err := createSignInToken(string(user.Uid))
+	if err != nil {
+		SendErrorResponse(500, err.Error(), w)
+		return
+	}
+
+	user.Token = token
 	json.NewEncoder(w).Encode(&user)
 }
 
