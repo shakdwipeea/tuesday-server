@@ -21,6 +21,13 @@ func saveUser(db *sql.DB, user User) (int, error) {
 	return int(lastID), err
 }
 
+func updateOtp(db *sql.DB, user User) error {
+	_, err := db.Exec("UPDATE user SET otp = ?, phone = ? WHERE phone = ?",
+		user.Otp, user.Verified, user.Phone)
+
+	return err
+}
+
 func updateUser(db *sql.DB, user User) error {
 	_, err := db.Exec("UPDATE user SET name = ?, pic =? WHERE phone = ?",
 		user.Name, user.Picture, user.Phone)

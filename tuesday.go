@@ -34,7 +34,7 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	user, err := getUser(db, reqBody.Phone)
 	if err == sql.ErrNoRows {
 		// user does not exist so create the user and send otp
-		uid, err := createUser(reqBody)
+		uid, err := sendNewOtp(reqBody, true)
 		if err != nil {
 			SendErrorResponse(500, err.Error(), w)
 			return
@@ -55,6 +55,8 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
+	sendNewOtp(user, false)
+
 	user.Token = token
 	user.Otp = ""
 	json.NewEncoder(w).Encode(&user)
@@ -67,7 +69,7 @@ func createSignInToken(uid string) (string, error) {
 	return token, err
 }
 
-func createUser(user User) (int, error) {
+func sendNewOtp(user User, insert bool) (int, error) {
 	otp, err := genOtp()
 	if err != nil {
 		return -1, err
@@ -76,7 +78,14 @@ func createUser(user User) (int, error) {
 	user.Otp = otp
 	user.Verified = false
 
-	id, err := saveUser(db, user)
+	var id int
+	if insert {
+		id, err = saveUser(db, user)
+	} else {
+		id = user.Uid
+		err = updateOtp(db, user)
+	}
+
 	if err != nil {
 		return -1, err
 	}
