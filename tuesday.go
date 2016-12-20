@@ -1,11 +1,11 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"database/sql"
+	"strconv"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/julienschmidt/httprouter"
@@ -49,7 +49,7 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		return
 	}
 
-	token, err := createSignInToken(string(user.Uid))
+	token, err := createSignInToken(strconv.Itoa(user.Uid))
 	if err != nil {
 		SendErrorResponse(500, err.Error(), w)
 		return
@@ -61,6 +61,7 @@ func handlePhone(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 }
 
 func createSignInToken(uid string) (string, error) {
+	log.Println("uid is " + uid)
 	auth, _ := firebase.GetAuth()
 	token, err := auth.CreateCustomToken(uid, nil)
 	return token, err
@@ -113,7 +114,7 @@ func handleOtpVerification(w http.ResponseWriter, r *http.Request, _ httprouter.
 		return
 	}
 
-	token, err := createSignInToken(string(user.Uid))
+	token, err := createSignInToken(strconv.Itoa(user.Uid))
 	if err != nil {
 		SendErrorResponse(500, err.Error(), w)
 		return
