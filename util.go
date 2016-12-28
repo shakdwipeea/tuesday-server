@@ -1,14 +1,15 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
+	"time"
 )
 
 func SendErrorResponse(statusCode int, message string, w http.ResponseWriter) {
@@ -19,12 +20,9 @@ func SendErrorResponse(statusCode int, message string, w http.ResponseWriter) {
 }
 
 func genOtp() (string, error) {
-	len := 8
-
-	b := make([]byte, len)
-
-	_, err := io.ReadFull(rand.Reader, b)
-	return base64.StdEncoding.EncodeToString(b)[:6], err
+	rand.Seed(time.Now().UTC().UnixNano())
+	num := 1000 + rand.Intn(8999)
+	return strconv.Itoa(num), nil
 }
 
 func sendOtp(otp string, phone string) {
