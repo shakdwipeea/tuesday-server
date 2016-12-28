@@ -21,7 +21,7 @@ func SendErrorResponse(statusCode int, message string, w http.ResponseWriter) {
 
 func genOtp() (string, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
-	num := 1000 + rand.Intn(8999)
+	num := 100000 + rand.Intn(899999)
 	return strconv.Itoa(num), nil
 }
 
